@@ -1,0 +1,117 @@
+from airflow import DAG
+from airflow.operators.python_operator import PythonOperator
+from airflow.operators.email_operator import EmailOperator
+from datetime import datetime
+import monetdblite
+
+# Define default_args
+default_args = {
+    'owner': 'your_name',
+    'start_date': datetime(2023, 10, 30),
+    'retries': 1,
+    'email': ['your_email@example.com'],  # Add your email address here
+    'email_on_failure': True,
+}
+
+# Create a DAG
+dag = DAG(
+    'example_dag',
+    default_args=default_args,
+    schedule_interval=None,  # You can set a schedule_interval as needed
+    catchup=False,
+    tags=['example'],
+)
+
+# Define 8 Python functions as tasks
+def task_1():
+    print("Task 1")
+
+def task_2():
+    print("Task 2")
+
+def task_3():
+    print("Task 3")
+
+def task_4():
+    print("Task 4")
+
+def task_5():
+    print("Task 5")
+
+def task_6():
+    print("Task 6")
+
+def task_7():
+    # Connect to MonetDB and execute a query
+    connection = monetdblite.connect('your_monetdb_database')
+    cursor = connection.cursor()
+    cursor.execute('SELECT your_column FROM your_table')
+    
+    # Fetch the result and store it in a variable
+    result = cursor.fetchall()
+    
+    # Close the connection
+    connection.close()
+    
+    # Print the result (optional)
+    print(f"Task 7 Result: {result}")
+    
+    # Return the result to be passed to the next task
+    return result
+
+# Create 8 PythonOperator tasks
+task1 = PythonOperator(
+    task_id='task_1',
+    python_callable=task_1,
+    dag=dag,
+)
+
+task2 = PythonOperator(
+    task_id='task_2',
+    python_callable=task_2,
+    dag=dag,
+)
+
+task3 = PythonOperator(
+    task_id='task_3',
+    python_callable=task_3,
+    dag=dag,
+)
+
+task4 = PythonOperator(
+    task_id='task_4',
+    python_callable=task_4,
+    dag=dag,
+)
+
+task5 = PythonOperator(
+    task_id='task_5',
+    python_callable=task_5,
+    dag=dag,
+)
+
+task6 = PythonOperator(
+    task_id='task_6',
+    python_callable=task_6,
+    dag=dag,
+)
+
+task7 = PythonOperator(
+    task_id='task_7',
+    python_callable=task_7,
+    provide_context=True,  # Pass the context to access outputs of previous tasks
+    dag=dag,
+)
+
+# Add an email task to notify on failure
+email_task = EmailOperator(
+    task_id='email_notification',
+    to='your_email@example.com',  # Add your email address here
+    subject='Airflow Task Failed',
+    provide_context=True,  # Pass the context to access outputs of previous tasks
+    html_content='<p>The Airflow task has failed. Task 7 Result: {{ ti.xcom_pull(task_ids="task_7") }}</p>',
+    dag=dag,
+)
+
+# Set the email task to trigger on failure of any of the tasks
+task1 >> task2 >> task3 >> task4 >> task5 >> task6 >> task7 >> email_task
