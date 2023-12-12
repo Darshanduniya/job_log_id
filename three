@@ -1,0 +1,44 @@
+from airflow import DAG
+from airflow.operators.python_operator import PythonOperator
+from airflow.operators.email_operator import EmailOperator
+from datetime import datetime
+import monetdblite
+
+# ... (Previous code remains unchanged)
+
+# Define the path to the file
+file_path = '/path/to/your/file.txt'
+
+# Modify task_7 to read the file and fetch details
+def task_7():
+    print("Task 7")
+    # Assuming the file has a simple structure with comma-separated values
+    with open(file_path, 'r') as file:
+        content = file.read().strip().split(',')
+
+    # Assuming the content structure is: name, country, age, job_log_id, gender
+    model_name = content[0]
+    job_log_id = content[3]
+
+    return model_name, job_log_id
+
+# Modify task7 PythonOperator
+task7 = PythonOperator(
+    task_id='task_7',
+    python_callable=task_7,
+    provide_context=True,
+    dag=dag,
+)
+
+# Modify the email_task to use the output of task_7
+email_task = EmailOperator(
+    task_id='email_notification',
+    to='your_email@example.com',
+    subject='Airflow Task Failed',
+    provide_context=True,
+    html_content=f'<html><head><style>...<td>{{ ti.xcom_pull(task_ids="task_7")[0] }}</td><td>{{ ti.xcom_pull(task_ids="task_7")[1] }}</td>...',
+    dag=dag,
+)
+
+# Set the email_task to trigger on failure of any of the tasks
+task1 >> task2 >> task3 >> task4 >> task5 >> task6 >> task7 >> email_task
